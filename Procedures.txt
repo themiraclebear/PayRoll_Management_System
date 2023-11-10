@@ -1,0 +1,87 @@
+----Updating Employee
+create procedure [dbo].[updating_employee_dept]
+@emp_id int,
+@dept_id int
+as  
+begin
+if exists (SELECT * FROM Employee where @emp_id = Employee_Id)
+begin
+update Employee set Department_Id=@dept_id where Employee_Id=@emp_id 
+print('Updated Employee Id'+cast(@emp_id as varchar(10)) + ' for Department' + cast(@dept_id as varchar(10)));
+end
+else
+begin
+print('Invalid Value Error')
+end
+end
+
+
+---Checking Employee
+create procedure [dbo].[emp_lookup]
+@o_ename varchar(100) output,
+@o_sal int output, 
+@p_empno  int
+as 
+begin
+select  @o_ename = e.First_Name,
+    @o_sal = s.Hourly_Pay from Employee e
+		inner join AccountDetails a
+		on e.Employee_Id = a.Employee_Id
+		inner join Salary s
+		on a.Account_Id = s.Account_Id
+		where e.Employee_Id = @p_empno
+		order by s.Hourly_Pay DESC;
+if  NOT exists (select * FROM Employee WHERE Employee_Id=@p_empno)
+	BEGIN
+		PRINT 'Enter valid employee id';
+	END
+	ELSE 
+	BEGIN
+		PRINT 'Employee Name: ' + @o_ename + ', Salary: ' + CAST(@o_sal AS NVARCHAR);
+	END
+end
+
+
+-----Employees With SameSalary
+
+create procedure [dbo].[PrintEmployeesWithSameSalary] (@sal int)
+as
+begin
+    declare @ename varchar(20)
+    declare @sals int
+
+   
+    declare employee_cursor cursor for
+    select e.first_name, s.hourly_pay from employee e
+    inner join AccountDetails a on e.employee_id = a.employee_id 
+    inner join salary s on s.account_id = a.account_id
+    where s.hourly_pay = @sal
+
+    open employee_cursor
+
+    fetch next from employee_cursor into @ename, @sals
+
+    while @@FETCH_STATUS = 0
+    begin
+        print cast(@ename as varchar(20))+':'+cast (@sals as varchar(25))
+        fetch next from employee_cursor into @ename, @sals
+    end
+
+    close employee_cursor
+    deallocate employee_cursor
+end
+
+create table Work_Location_History(Location_Id int,Location varchar(25) ,Number_Of_Employees int,City varchar(25),State Varchar(25),UPDATED_AT DateTime,Operation char(3),CHECK(OPERATION = 'INS' OR OPERATION = 'DEL'))
+
+-- Trigger On Insertion and Deletion of Data in Work Location
+CREATE TRIGGER On_change
+ON Work_Location
+AFTER INSERT,DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO Work_Location_History(Location_Id,Location,Number_Of_Employees,City,State,UPDATED_AT,Operation)
+    SELECT  i.Location_Id,Location,Number_Of_Employees, City,State,GETDATE(), 'INS' FROM inserted i
+    UNION
+    SELECT  d.Location_Id,Location,Number_Of_Employees, City,State,GETDATE(), 'DEL' FROM deleted d;
+END
